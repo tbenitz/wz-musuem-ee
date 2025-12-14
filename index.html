@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Warzone Museum Egg Solver</title>
+<style>
+  body { font-family: Arial, sans-serif; background: #111; color: white; text-align: center; padding: 20px; margin: 0; font-size: 16px; }
+  h1 { color: #ff6b35; font-size: 28px; margin: 20px 0; }
+  h2 { color: #fff; font-size: 22px; margin: 20px 0; }
+  button { padding: 8px 16px; font-size: 16px; background: #ff6b35; color: white; border: none; border-radius: 6px; cursor: pointer; margin: 8px; transition: background 0.3s; }
+  button:hover { background: #e55a2b; }
+  button:disabled { background: #555; cursor: not-allowed; }
+  button.active { background: #0f0; }
+  .section { margin: 20px 0; padding: 15px; background: #222; border-radius: 8px; max-width: 1000px; margin: 20px auto; }
+  .pics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .pic-slot { background: #333; padding: 10px; border-radius: 8px; border: 2px dashed #555; cursor: pointer; transition: all 0.3s; position: relative; }
+  .pic-slot.available { border-color: #ff6b35; }
+  .pic-slot.selected { border-color: #0f0; box-shadow: 0 0 15px #0f0; }
+  .pic-slot img { width: 100%; height: 100px; object-fit: cover; border-radius: 6px; }
+  .pic-slot.unavailable { opacity: 0.4; pointer-events: none; }
+  .pic-name { font-size: 14px; font-weight: bold; margin: 5px 0; }
+  .eq-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin: 10px 0; }
+  .op-row { display: flex; gap: 5px; margin: 5px 0; }
+  .op-btn { padding: 10px 15px; font-size: 18px; font-weight: bold; min-width: 50px; }
+  .op-btn.plus { background: #4CAF50; }
+  .op-btn.minus { background: #f44336; }
+  .op-btn.selected { box-shadow: 0 0 10px #fff; transform: scale(1.05); }
+  #current-eq { font-size: 22px; margin: 10px; padding: 10px; background: #333; border-radius: 6px; }
+  .equations-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 10px 0; }
+  .eq-item { background: #444; padding: 10px; border-radius: 6px; cursor: grab; min-width: 180px; user-select: none; }
+  .eq-item:active { cursor: grabbing; }
+  .eq-item:hover { background: #555; }
+  .final-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; max-width: 800px; margin: 0 auto; }
+  .final-pic { position: relative; }
+  .final-pic img { width: 150px; height: 100px; object-fit: cover; border-radius: 6px; border: 2px solid #0f0; }
+  .roman { padding: 4px 8px; font-size: 18px; }
+  .roman-options { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+  .roman-btn { padding: 6px 10px; font-size: 14px; background: #666; color: white; border: none; border-radius: 4px; cursor: pointer; }
+  .roman-btn.selected { background: #0f0; color: #000; }
+  .roman-btn:disabled { background: #333; cursor: not-allowed; }
+  #result { font-size: 80px; color: #0f0; margin: 30px; font-weight: bold; letter-spacing: 10px; text-shadow: 0 0 15px #0f0; }
+  .edit-btn { background: #2196F3; font-size: 12px; padding: 6px 10px; margin-left: 5px; }
+  .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+  .modal-content { background: #222; padding: 20px; border-radius: 10px; text-align: center; max-width: 400px; }
+  .modal img { width: 200px; height: 150px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<h1>🎮 Warzone Museum Egg Solver</h1>
+
+<div class="section" id="eq-section">
+  <h2>Step 1: Build Equations</h2>
+  <p>Click photo to pop overlay, pick +/- (auto-adds). Drag equations to rearrange. Edit to repick (same OK).</p>
+  <div class="pics-grid available-pics" id="eq-pics"></div>
+  <div class="equations-list" id="eq-list"></div>
+</div>
+
+<div class="section" id="final-section">
+  <h2>Step 2: Assign Roman Numerals</h2>
+  <p>Select roman for each (unique, from game plaque). Auto-calculates when all assigned.</p>
+  <div class="final-grid" id="final-pics"></div>
+</div>
+
+<div id="result">----</div>
+
+<div id="modal" class="modal hidden">
+  <div class="modal-content">
+    <img id="modal-img">
+    <div id="modal-name" style="font-size: 24px; margin: 10px;"></div>
+    <div class="eq-buttons" id="modal-op-buttons">
+      <div class="op-row">
+        <button class="op-btn plus" data-op="+" data-num="1">+1</button>
+        <button class="op-btn plus" data-op="+" data-num="2">+2</button>
+        <button class="op-btn plus" data-op="+" data-num="3">+3</button>
+        <button class="op-btn plus" data-op="+" data-num="4">+4</button>
+        <button class="op-btn plus" data-op="+" data-num="5">+5</button>
+      </div>
+      <div class="op-row">
+        <button class="op-btn minus" data-op="-" data-num="1">-1</button>
+        <button class="op-btn minus" data-op="-" data-num="2">-2</button>
+        <button class="op-btn minus" data-op="-" data-num="3">-3</button>
+        <button class="op-btn minus" data-op="-" data-num="4">-4</button>
+        <button class="op-btn minus" data-op="-" data-num="5">-5</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const paintings = [
+  { name: 'Trees', img: 'trees.png' },
+  { name: 'Ship', img: 'ship.png' },
+  { name: 'Vase', img: 'vase.png' },
+  { name: 'Owl', img: 'owl.png' },
+  { name: 'House', img: 'house.png' },
+  { name: 'Ice', img: 'ice.png' },
+  { name: 'Horse', img: 'horse.png' },
+  { name: 'River', img: 'river.png' }
+];
+
+const romanMap = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8 };
+const romans = Object.keys(romanMap);
+let availableRomans = [...romans];
+
+let equations = [];
+let available = [...paintings.map(p => p.name.toLowerCase())];
+let currentPic = null;
+
+function setupEqPics() {
+  const grid = document.getElementById('eq-pics');
+  grid.innerHTML = '';
+  paintings.forEach(p => {
+    const slot = document.createElement('div');
+    slot.className = 'pic-slot available';
+    const img = document.createElement('img');
+    img.src = p.img;
+    slot.appendChild(img);
+    slot.innerHTML += `<div class="pic-name">${p.name}</div>`;
+    slot.onclick = () => showModal(p);
+    grid.appendChild(slot);
+  });
+}
+
+function showModal(p) {
+  if (!available.includes(p.name.toLowerCase())) return;
+  currentPic = p;
+  document.getElementById('modal-img').src = p.img;
+  document.getElementById('modal-name').textContent = p.name;
+  document.getElementById('modal').classList.remove('hidden');
+  document.querySelectorAll('#modal-op-buttons .op-btn').forEach(b => b.classList.remove('selected'));
+}
+
+document.querySelectorAll('#modal-op-buttons .op-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('#modal-op-buttons .op-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    const op = btn.dataset.op;
+    const num = parseInt(btn.dataset.num);
+    addEquation(op, num);
+    closeModal();
+  };
+});
+
+function closeModal() {
+  document.getElementById('modal').classList.add('hidden');
+  currentPic = null;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal();
+});
+
+function addEquation(op, num) {
+  equations.push({name: currentPic.name, img: currentPic.img, op, num, roman: null});
+  available = available.filter(a => a !== currentPic.name.toLowerCase());
+  updateEqPics();
+  updateEqList();
+  if (equations.length === 4) {
+    setupFinalPics();
+  }
+}
+
+function updateEqPics() {
+  document.querySelectorAll('#eq-pics .pic-slot').forEach(slot => {
+    const name = slot.querySelector('.pic-name').textContent.toLowerCase();
+    if (available.includes(name)) {
+      slot.classList.add('available');
+      slot.classList.remove('unavailable');
+    } else {
+      slot.classList.remove('available');
+      slot.classList.add('unavailable');
+    }
+  });
+}
+
+function updateEqList() {
+  const list = document.getElementById('eq-list');
+  list.innerHTML = '';
+  equations.forEach((eq, i) => {
+    const item = document.createElement('div');
+    item.className = 'eq-item';
+    item.draggable = true;
+    item.dataset.index = i;
+    item.innerHTML = `
+      <img src="${eq.img}" style="width:50px; height:35px; object-fit:cover; float:left; margin-right:8px; border-radius:4px;">
+      <strong>${eq.name}</strong> ${eq.op}${eq.num}
+      <button class="edit-btn" onclick="editEquation(${i})">Edit</button>
+    `;
+    list.appendChild(item);
+  });
+  addDragAndDrop();
+}
+
+function addDragAndDrop() {
+  const items = document.querySelectorAll('.eq-item');
+  items.forEach(item => {
+    item.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', item.dataset.index);
+      item.style.opacity = '0.5';
+    });
+    item.addEventListener('dragend', (e) => {
+      item.style.opacity = '1';
+    });
+    item.addEventListener('dragover', (e) => e.preventDefault());
+    item.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const fromIndex = e.dataTransfer.getData('text/plain');
+      const toIndex = item.dataset.index;
+      if (fromIndex !== toIndex) {
+        const temp = equations[fromIndex];
+        equations[fromIndex] = equations[toIndex];
+        equations[toIndex] = temp;
+        updateEqList();
+        setupFinalPics();
+      }
+    });
+  });
+}
+
+function editEquation(index) {
+  const eq = equations[index];
+  available.push(eq.name.toLowerCase());
+  equations.splice(index, 1);
+  updateEqPics();
+  updateEqList();
+  document.getElementById('final-pics').innerHTML = '';
+}
+
+function setupFinalPics() {
+  const grid = document.getElementById('final-pics');
+  grid.innerHTML = '';
+  availableRomans = [...romans];
+  equations.forEach((eq, i) => {
+    const pic = document.createElement('div');
+    pic.className = 'final-pic';
+    pic.dataset.index = i;
+    pic.innerHTML = `
+      <img src="${eq.img}">
+      <div class="num-input">
+        <strong>${eq.name} ${eq.op}${eq.num}</strong><br>
+        <div class="roman-options" id="roman-options-${i}"></div>
+      </div>
+    `;
+    grid.appendChild(pic);
+    updateRomanOptions(i);
+  });
+}
+
+function updateRomanOptions(forIndex = null) {
+  const indices = forIndex !== null ? [forIndex] : equations.map((_, i) => i);
+  indices.forEach(i => {
+    const options = document.getElementById(`roman-options-${i}`);
+    if (options) {
+      options.innerHTML = '';
+      romans.forEach(r => {
+        const btn = document.createElement('button');
+        btn.className = 'roman-btn';
+        btn.textContent = r;
+        btn.disabled = !availableRomans.includes(r) && equations[i].roman !== r;
+        if (equations[i].roman === r) {
+          btn.classList.add('selected');
+        }
+        btn.onclick = () => selectRoman(i, r);
+        options.appendChild(btn);
+      });
+    }
+  });
+  checkAllAssigned();
+}
+
+function selectRoman(index, r) {
+  const prev = equations[index].roman;
+  if (prev) {
+    availableRomans.push(prev);
+  }
+  availableRomans = availableRomans.filter(ar => ar !== r);
+  equations[index].roman = r;
+  updateRomanOptions();
+}
+
+function checkAllAssigned() {
+  if (equations.every(eq => eq.roman) && equations.length === 4) {
+    calculateCode();
+  }
+}
+
+function calculateCode() {
+  let code = '';
+  equations.forEach(eq => {
+    const val = romanMap[eq.roman];
+    const res = eq.op === '+' ? val + eq.num : val - eq.num;
+    code += res;
+  });
+  document.getElementById('result').textContent = code;
+}
+
+setupEqPics();
+</script>
+</body>
+</html>
