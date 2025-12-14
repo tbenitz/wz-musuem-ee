@@ -70,6 +70,7 @@
     <div id="modal-name" style="font-size: 24px; margin: 10px;"></div>
     <div class="eq-buttons" id="modal-op-buttons">
       <div class="op-row">
+        <button class="op-btn plus" data-op="+" data-num="0">+0</button>
         <button class="op-btn plus" data-op="+" data-num="1">+1</button>
         <button class="op-btn plus" data-op="+" data-num="2">+2</button>
         <button class="op-btn plus" data-op="+" data-num="3">+3</button>
@@ -77,6 +78,7 @@
         <button class="op-btn plus" data-op="+" data-num="5">+5</button>
       </div>
       <div class="op-row">
+        <button class="op-btn minus" data-op="-" data-num="0">-0</button>
         <button class="op-btn minus" data-op="-" data-num="1">-1</button>
         <button class="op-btn minus" data-op="-" data-num="2">-2</button>
         <button class="op-btn minus" data-op="-" data-num="3">-3</button>
@@ -114,7 +116,7 @@ function setupEqPics() {
     const slot = document.createElement('div');
     slot.className = 'pic-slot available';
     const img = document.createElement('img');
-    img.src = p.img;
+    img.src = p.img; // RESTORED: Uses the filename from the paintings array
     slot.appendChild(img);
     slot.innerHTML += `<div class="pic-name">${p.name}</div>`;
     slot.onclick = () => showModal(p);
@@ -125,7 +127,7 @@ function setupEqPics() {
 function showModal(p) {
   if (!available.includes(p.name.toLowerCase())) return;
   currentPic = p;
-  document.getElementById('modal-img').src = p.img;
+  document.getElementById('modal-img').src = p.img; // RESTORED: Uses the filename from the paintings array
   document.getElementById('modal-name').textContent = p.name;
   document.getElementById('modal').classList.remove('hidden');
   document.querySelectorAll('#modal-op-buttons .op-btn').forEach(b => b.classList.remove('selected'));
@@ -186,7 +188,7 @@ function updateEqList() {
       <img src="${eq.img}" style="width:50px; height:35px; object-fit:cover; float:left; margin-right:8px; border-radius:4px;">
       <strong>${eq.name}</strong> ${eq.op}${eq.num}
       <button class="edit-btn" onclick="editEquation(${i})">Edit</button>
-    `;
+    `; // RESTORED: Uses the filename from the equation object
     list.appendChild(item);
   });
   addDragAndDrop();
@@ -212,7 +214,7 @@ function addDragAndDrop() {
         equations[fromIndex] = equations[toIndex];
         equations[toIndex] = temp;
         updateEqList();
-        setupFinalPics();
+        if (equations.length === 4) setupFinalPics();
       }
     });
   });
@@ -220,17 +222,32 @@ function addDragAndDrop() {
 
 function editEquation(index) {
   const eq = equations[index];
+  if (eq.roman) {
+    availableRomans.push(eq.roman);
+  }
   available.push(eq.name.toLowerCase());
   equations.splice(index, 1);
   updateEqPics();
   updateEqList();
-  document.getElementById('final-pics').innerHTML = '';
+  if (equations.length < 4) {
+    document.getElementById('final-pics').innerHTML = '';
+    document.getElementById('result').textContent = '----';
+  } else {
+    setupFinalPics();
+  }
 }
 
 function setupFinalPics() {
   const grid = document.getElementById('final-pics');
   grid.innerHTML = '';
+  // Re-calculate available romans based on current assignments
   availableRomans = [...romans];
+  equations.forEach(eq => {
+    if (eq.roman) {
+      availableRomans = availableRomans.filter(ar => ar !== eq.roman);
+    }
+  });
+
   equations.forEach((eq, i) => {
     const pic = document.createElement('div');
     pic.className = 'final-pic';
@@ -241,10 +258,11 @@ function setupFinalPics() {
         <strong>${eq.name} ${eq.op}${eq.num}</strong><br>
         <div class="roman-options" id="roman-options-${i}"></div>
       </div>
-    `;
+    `; // RESTORED: Uses the filename from the equation object
     grid.appendChild(pic);
-    updateRomanOptions(i);
   });
+  updateRomanOptions();
+  checkAllAssigned();
 }
 
 function updateRomanOptions(forIndex = null) {
@@ -257,10 +275,16 @@ function updateRomanOptions(forIndex = null) {
         const btn = document.createElement('button');
         btn.className = 'roman-btn';
         btn.textContent = r;
-        btn.disabled = !availableRomans.includes(r) && equations[i].roman !== r;
-        if (equations[i].roman === r) {
+        
+        const isCurrentlySelected = equations[i].roman === r;
+        const isAvailable = availableRomans.includes(r);
+
+        btn.disabled = !isCurrentlySelected && !isAvailable;
+        
+        if (isCurrentlySelected) {
           btn.classList.add('selected');
         }
+        
         btn.onclick = () => selectRoman(i, r);
         options.appendChild(btn);
       });
@@ -271,17 +295,28 @@ function updateRomanOptions(forIndex = null) {
 
 function selectRoman(index, r) {
   const prev = equations[index].roman;
-  if (prev) {
-    availableRomans.push(prev);
+  
+  if (prev === r) {
+    // Deselect if already selected
+    equations[index].roman = null;
+    availableRomans.push(r);
+  } else {
+    // Select new one
+    if (prev) {
+      availableRomans.push(prev); // Make previous available again
+    }
+    availableRomans = availableRomans.filter(ar => ar !== r); // Take new one out
+    equations[index].roman = r;
   }
-  availableRomans = availableRomans.filter(ar => ar !== r);
-  equations[index].roman = r;
+  
   updateRomanOptions();
 }
 
 function checkAllAssigned() {
-  if (equations.every(eq => eq.roman) && equations.length === 4) {
+  if (equations.length === 4 && equations.every(eq => eq.roman)) {
     calculateCode();
+  } else {
+    document.getElementById('result').textContent = '----';
   }
 }
 
